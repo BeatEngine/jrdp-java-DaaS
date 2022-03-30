@@ -1,12 +1,13 @@
 package ffmpeg;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 public class FFMPEG
 {
-    final private String applicationPath;
+    private String applicationPath;
     private Process process;
 
     private boolean running = false;
@@ -20,11 +21,11 @@ public class FFMPEG
         final String os = System.getProperty("os.name");
         if(os.toLowerCase().contains("windows"))
         {
-            applicationPath = "./ffmpeg/windows/bin/ffmpeg.exe";
+            applicationPath = "ffmpeg/windows/bin/ffmpeg.exe";
         }
         else
         {
-            applicationPath = "./ffmpeg/linux/bin/ffmpeg";
+            applicationPath = "ffmpeg/linux/bin/ffmpeg";
         }
         resolutionFormat = width + "x" + height;
         this.fps = fps;
@@ -66,7 +67,16 @@ public class FFMPEG
         {
             try
             {
-                process = Runtime.getRuntime().exec(applicationPath + " -y -f rawvideo -pix_fmt rgb -s "+ resolutionFormat +" -r " +fps+ " -i - -c:v libx264 -profile:v baseline -level:v 3 -b:v "+ fps*100 + " -an out_vid.h264");
+                applicationPath = new File(applicationPath).getAbsolutePath();
+                //process = Runtime.getRuntime().exec(applicationPath + " -y -f rawvideo -pix_fmt rgba -s "+ resolutionFormat +" -r " +fps+ " -i - -c:v libx264 -profile:v baseline -level:v 3 -b:v 2500 -an out_vid.h264");
+                process = new ProcessBuilder(new String[]{applicationPath, "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", ""+ resolutionFormat,"-r", "1/5", "-i", "-", "-c:v", "libx264", "-vf", "fps=" + fps, "-b:v", "2500", "-an", "out_vid.mp4"}).start();
+                int available = process.getInputStream().available();
+                if(available > 0)
+                {
+                    byte[] tmp = new byte[available];
+                    process.getInputStream().read(tmp);
+                    System.out.println(new String(tmp));
+                }
             }
             catch (final IOException e)
             {
@@ -75,10 +85,21 @@ public class FFMPEG
         }
     }
 
-    public void appendImageToVideoStream(final byte[] rgbDataFrame_1920x1080) throws IOException
+    public void appendImageToVideoStream(final byte[] rgbaDataFrame_1920x1080) throws IOException
     {
         runIfNot();
-        process.getOutputStream().write(rgbDataFrame_1920x1080);
+        if(process.isAlive())
+        {
+            try
+            {
+                process.getOutputStream().write(rgbaDataFrame_1920x1080);
+                process.getOutputStream().flush();
+            }
+            catch (final IOException e)
+            {
+                throw new IOException(e.getMessage() + "\n" + new String(process.getErrorStream().readAllBytes()));
+            }
+        }
     }
 
     public InputStream getInputStream()
@@ -86,4 +107,15 @@ public class FFMPEG
         return process.getInputStream();
     }
 
+    public void close()
+    {
+        try
+        {
+            process.destroy();
+            process.waitFor();
+        }
+        catch (InterruptedException e)
+        {
+        }
+    }
 }

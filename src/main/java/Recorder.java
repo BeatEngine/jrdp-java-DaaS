@@ -4,10 +4,7 @@ import org.jcodec.api.awt.AWTSequenceEncoder;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
@@ -99,6 +96,21 @@ public class Recorder
         }
     }
 
+    private byte[] rgbToRgbaByteArray(int[] arr)
+    {
+        final byte[] conv = new byte[(int)(arr.length*4/3.0)];
+        int r = 0;
+        for(int i = 0; i < arr.length; i+=3)
+        {
+            conv[r] = (byte)arr[i];
+            conv[r+1] = (byte)arr[i+1];
+            conv[r+2] = (byte)arr[i+2];
+            conv[r+3] = (byte)255;
+            r += 4;
+        }
+        return conv;
+    }
+
     public void stream(final Reference<InputStream> outputReference)
     {
         Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
@@ -107,17 +119,25 @@ public class Recorder
         {
             robot = new Robot();
             FFMPEG ffmpeg = new FFMPEG(screenRect.width, screenRect.height, 25);
-            System.out.println("Streaming...");
             int count = 0;
             float fpsAvg = 30.0f;
-            long at = System.currentTimeMillis();
-            byte[] buffer = new byte[screenRect.width*screenRect.height*3];
+            int[] buffer = new int[screenRect.width*screenRect.height*4];
             boolean notSet = true;
+            System.out.println("Streaming...");
+            long at = System.currentTimeMillis();
             while (count < 60)
             {
                 BufferedImage image = robot.createScreenCapture(screenRect);
-                image.getData().getDataElements(0, 0, buffer);
-                ffmpeg.appendImageToVideoStream(buffer);
+                image.getRGB(0, 0, screenRect.width, screenRect.height, buffer, 0, 1);
+                try
+                {
+                    ffmpeg.appendImageToVideoStream(rgbToRgbaByteArray(buffer));
+                }
+                catch (final IOException pipeClosed)
+                {
+                    System.out.println(pipeClosed.getMessage());
+                    break;
+                }
                 if(notSet)
                 {
                     outputReference.setReference(ffmpeg.getInputStream());
@@ -125,13 +145,12 @@ public class Recorder
                 }
                 fpsAvg = fpsAvg + (1000 / (System.currentTimeMillis() - at)) / 2;
                 at = System.currentTimeMillis();
+                count++;
             }
+            ffmpeg.close();
+            System.out.println("Stream finished!");
         }
         catch (AWTException e)
-        {
-            e.printStackTrace();
-        }
-        catch (IOException e)
         {
             e.printStackTrace();
         }
