@@ -42,6 +42,7 @@
                                 <filter>
                                     <includes>
                                         <include>~/.m2/repository/org/jcodec/**/*.class</include>
+                                        <include>~/.m2/repository/com/github/hoary\/**/*.class</include>
                                     </includes>
                                 </filter>
                             </filters>

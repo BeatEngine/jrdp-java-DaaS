@@ -1,9 +1,13 @@
+import ffmpeg.FFMPEG;
+import ffmpeg.Reference;
 import org.jcodec.api.awt.AWTSequenceEncoder;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
@@ -11,9 +15,9 @@ import java.util.Timer;
 public class Recorder
 {
 
-    public Recorder(final String fileName)
+    public Recorder()
     {
-        init(fileName);
+        //init(fileName);
     }
 
     Rectangle rectangle;
@@ -84,6 +88,44 @@ public class Recorder
                 at = System.currentTimeMillis();
             }
             makeVideoFromImages(imageList, file);
+        }
+        catch (AWTException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void stream(final Reference<InputStream> outputReference)
+    {
+        Rectangle screenRect = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+        Robot robot = null;
+        try
+        {
+            robot = new Robot();
+            FFMPEG ffmpeg = new FFMPEG(screenRect.width, screenRect.height, 25);
+            System.out.println("Streaming...");
+            int count = 0;
+            float fpsAvg = 30.0f;
+            long at = System.currentTimeMillis();
+            byte[] buffer = new byte[screenRect.width*screenRect.height*3];
+            boolean notSet = true;
+            while (count < 60)
+            {
+                BufferedImage image = robot.createScreenCapture(screenRect);
+                image.getData().getDataElements(0, 0, buffer);
+                ffmpeg.appendImageToVideoStream(buffer);
+                if(notSet)
+                {
+                    outputReference.setReference(ffmpeg.getInputStream());
+                    notSet = false;
+                }
+                fpsAvg = fpsAvg + (1000 / (System.currentTimeMillis() - at)) / 2;
+                at = System.currentTimeMillis();
+            }
         }
         catch (AWTException e)
         {
