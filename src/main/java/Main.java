@@ -16,10 +16,22 @@ public class Main
         });
         streamer.start();
         final InputStream videoStream;
-        while (inputStreamReference.getReference() == null)
+        while (inputStreamReference.isWaiting())
         {
-
+            try
+            {
+                Thread.sleep(200);
+            }
+            catch (InterruptedException e)
+            {
+            }
         }
+        if(inputStreamReference.isError())
+        {
+            System.out.printf("Stream null!");
+            return;
+        }
+        inputStreamReference.setClaimed(true);
         videoStream = inputStreamReference.getReference();
         try
         {
@@ -31,11 +43,13 @@ public class Main
                 fout.write(videoStream.readNBytes(av));
                 av = videoStream.available();
             }
+            inputStreamReference.setClaimed(false);
             System.out.println("end!");
             streamer.join();
         }
         catch (final Exception e)
         {
+            inputStreamReference.setClaimed(false);
             e.printStackTrace();
         }
     }

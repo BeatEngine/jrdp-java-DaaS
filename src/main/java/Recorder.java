@@ -140,12 +140,30 @@ public class Recorder
                 }
                 if(notSet)
                 {
-                    outputReference.setReference(ffmpeg.getInputStream());
+                    final InputStream inputStream = ffmpeg.getInputStream();
+                    if(inputStream != null)
+                    {
+                        outputReference.setReference(inputStream);
+                    }
+                    else
+                    {
+                        outputReference.setError(true);
+                    }
                     notSet = false;
                 }
                 fpsAvg = fpsAvg + (1000 / (System.currentTimeMillis() - at)) / 2;
                 at = System.currentTimeMillis();
                 count++;
+            }
+            while (outputReference.isClaimed())
+            {
+                try
+                {
+                    Thread.sleep(200);
+                }
+                catch (InterruptedException e)
+                {
+                }
             }
             ffmpeg.close();
             System.out.println("Stream finished!");
